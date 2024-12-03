@@ -27,11 +27,13 @@ knitr::opts_chunk$set(echo = TRUE)
 if (!require(tidyverse)) install.packages("tidyverse")
 if (!require(ggplot2)) install.packages("ggplot2")
 if (!require(dplyr)) install.packages("dplyr")
+if (!require(kableExtra)) install.packages("kableExtra")
 
 # Cargar librerías
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
+library(kableExtra)
 ```
 
 ## Metodologia
@@ -78,6 +80,8 @@ categorias_agrupadas <- lottery_csv %>%
 
 #### Distribución de premios
 
+Una vez organizada y limpiada la informacion, se procede a graficar como se distribuyen los premios, para asi tener una idea mas clara de cuales son los que tienen mas registros y cuales por el contrario tienen pocas apariciones
+
 ```{r premios-distribucion}
 
 premios_frecuencia <- lottery_csv %>% group_by(PREMIO) %>% summarise(count = n())
@@ -90,7 +94,7 @@ ggplot(premios_frecuencia, aes(x = reorder(PREMIO, -count), y = count)) +
 
 ```
 
-Ahora para obtener los premios mas frecuentados lo reducimos a los 10 primeros
+Luego acotamos a 10 los premios, ya que se evidencia que en ellos es donde se tiene la mayor distribucion de registros
 
 ```{r Top-10-premios mas frecuentados}
 
@@ -111,6 +115,35 @@ lottery_csv %>%
     legend.position = "none"
   )
 
+```
+
+Por ultimo, calculamos la probabilidad de ganar uno de los 10 primeros premios en base a la informacion suministrada, obteniendo la siguiente tabla
+```{r Probabilidad de los 10 premios mas frecuentes}
+
+premios_frecuencia <- lottery_csv %>%
+  count(PREMIO) %>%
+  arrange(desc(n))
+
+top_10_premios <- premios_frecuencia %>%
+  slice(1:10)
+
+total_premios <- sum(premios_frecuencia$n)
+
+premios_frecuencia <- premios_frecuencia  %>%
+  mutate(probabilidad = (n / total_premios) * 100) %>%
+  mutate(probabilidad = paste0(round(probabilidad, 2), "%"))
+
+top_10_premios <- premios_frecuencia %>%
+  slice(1:10)
+
+top_10_premios %>%
+  select(PREMIO, n, probabilidad) %>%
+  kable("html", col.names = c("Premio", "Número de Premios", "Probabilidad (%)")) %>%
+  kable_styling("striped", full_width = F) %>%  
+  column_spec(1, bold = TRUE, color = "white", background = "#0073e6") %>%  
+  column_spec(2, background = "#f2f2f2") %>%  
+  column_spec(3, background = "#d9edf7") %>%  
+  row_spec(0, bold = TRUE, color = "white", background = "#333333")  
 ```
 
 #### Análisis por sorteo
