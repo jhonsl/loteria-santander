@@ -1,0 +1,150 @@
+---
+title: "Proyecto Final: Análisis de la Lotería de Santander"
+author: "Tomas Castro - Jhon Salazar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Loteria de Santander Analisis {.tabset}
+
+## Introducción
+
+El objetivo principal de este proyecto es realizar un análisis exhaustivo de los datos relacionados con los ganadores de la Lotería de Santander, utilizando el conjunto de datos denominado lottery_csvset. Este análisis tiene como propósito aplicar los conocimientos adquiridos en la materia de Estadistica 1, a fin de proporcionar una visión profunda sobre los patrones y tendencias presentes en los resultados de la lotería.
+
+A lo largo de este proyecto, se abordarán diversas preguntas clave que surgen al examinar los resultados históricos de la lotería. Entre las cuestiones que se explorarán se incluyen: ¿Cuáles son los premios con mayor probabilidad de ser otorgados? ¿Qué sorteos han generado más ganadores a lo largo del tiempo? ¿Existen patrones recurrentes en los números o en las series ganadoras? Estas y otras interrogantes serán respondidas mediante un análisis riguroso de los datos, aplicando técnicas estadísticas y de visualización para identificar tendencias y patrones que puedan ofrecer una mejor comprensión de las dinámicas de los sorteos.
+
+Este proyecto tiene como propósito no solo generar un análisis descriptivo de los datos, sino también proporcionar información útil que podría servir para futuros estudios o para la toma de decisiones relacionadas con los sorteos de la Lotería de Santander.
+
+## Paquetes requeridos
+
+```{r setup, include=FALSE}
+options(repos = c(CRAN = "https://cran.rstudio.com"))
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries}
+# Instalar paquetes necesarios (si no están instalados)
+if (!require(tidyverse)) install.packages("tidyverse")
+if (!require(ggplot2)) install.packages("ggplot2")
+if (!require(dplyr)) install.packages("dplyr")
+
+# Cargar librerías
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+```
+
+## Metodologia
+
+### Obtencion de los Datos
+
+Los datos utilizados en este análisis provienen de un archivo CSV titulado "resultados_por_sorteo_loteria_santander_20241127.csv", el cual contiene información histórica sobre los sorteos y ganadores de la Lotería de Santander. Este conjunto de datos incluye variables como el número ganador, el tipo de premio, el sorteo, y la serie correspondiente a cada ganador. Los datos fueron obtenidos directamente de la pagina de datos oficial del gobierno de colombia, lo que garantiza que la información esté actualizada hasta la fecha más reciente disponible (noviembre 2024).
+
+### Limpieza de los datos
+
+Los datos fueron cargados en R utilizando la función read_csv() del paquete readr. El archivo CSV es el formato estándar para la recopilación de datos de la lotería, permitiendo su fácil importación a un entorno de análisis.
+
+Posteriormente al cargue del archivo, al revisar la informacion, se detectaron inconsistencias en la columna de premios, donde algunas categorías de premios estaban representadas con nombres ligeramente diferentes (por ejemplo, "PREMIO SECO DE 3 MILLONES" y "SECOS DE 3 MILLONES"). Para corregir estos problemas, se unificaron las categorías mediante la función mutate() del paquete dplyr y la función case_when(), asegurando que todas las entradas fueran consistentes. Además, se convirtió la columna de números de sorteos a formato numérico para facilitar su análisis.
+
+```{r lottery_csv-loading}
+
+lottery_csv <- read_csv("./resultados_por_sorteo_loteria_santander_20241127.csv")
+
+
+lottery_csv <- lottery_csv %>%
+  mutate(
+    PREMIO = str_to_upper(PREMIO),
+    PREMIO = case_when(
+      PREMIO %in% c("PREMIO SECO DE 3 MILLONES", "SECOS DE 3 MILLONES") ~ "SECO DE 3 MILLONES",
+      PREMIO %in% c("SECO DE 5 M", "SECO DE 5 MILLONES") ~ "SECO DE 5 MILLONES",
+      PREMIO %in% c("SECO DE 10 M", "SECO DE 10 MILLONES", "PREMIO SECO DE 10 MILLONES") ~ "SECO DE 10 MILLONES",
+      PREMIO %in% c("SECO DE 20 M", "PREMIO SECO DE 20 MILLONES", "SECO DE 20 MILLONES") ~ "SECO DE 20 MILLONES",
+      PREMIO %in% c("SECO DE 50 M", "SECO DE 50 MILLONES") ~ "SECO DE 50 MILLONES",
+      PREMIO %in% c("SECO DE 100 M", "SECO DE 100 MILLONES", "PREMIO SECO DE 100 MILLONES") ~ "SECO DE 100 MILLONES",
+      
+      TRUE ~ PREMIO
+    ),
+    NUMERO = as.numeric(NUMERO)
+  )
+
+categorias_agrupadas <- lottery_csv %>%
+  count(PREMIO) %>%
+  arrange(desc(n))
+```
+
+## Resultados
+
+###  {.tabset}
+
+#### Distribución de premios
+
+```{r premios-distribucion}
+
+premios_frecuencia <- lottery_csv %>% group_by(PREMIO) %>% summarise(count = n())
+
+ggplot(premios_frecuencia, aes(x = reorder(PREMIO, -count), y = count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Distribución de premios", x = "PREMIO", y = "Frecuencia") +
+  theme_minimal()
+
+```
+
+Ahora para obtener los premios mas frecuentados lo reducimos a los 10 primeros
+
+```{r Top-10-premios mas frecuentados}
+
+lottery_csv %>%
+  count(PREMIO) %>%
+  arrange(desc(n)) %>%
+  slice(1:10) %>%
+  ggplot(aes(x = reorder(PREMIO, -n), y = n, fill = PREMIO)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Distribución de Premios Agrupados (Top 10)",
+    x = "Tipo de Premio",
+    y = "Cantidad de Premios"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
+```
+
+#### Análisis por sorteo
+
+```{r analisis-SORTEO}
+
+sorteos_frecuencia <- lottery_csv %>% group_by(SORTEO) %>% summarise(count = n())
+
+ggplot(sorteos_frecuencia, aes(x = SORTEO, y = count)) +
+  geom_line(color = "darkgreen") +
+  labs(title = "PREMIOs por SORTEO", x = "SORTEO", y = "Número de premios") +
+  theme_minimal()
+```
+
+#### Análisis de SERIEs
+
+```{r SERIEs-analisis}
+
+ggplot(lottery_csv, aes(x = SERIE)) +
+  geom_histogram(binwidth = 10, fill = "purple", color = "black") +
+  labs(title = "Distribución de seriess Ganadoras", x = "SERIE", y = "Frecuencia") +
+  theme_minimal()
+```
+
+## Discusion
+
+## Conclusiones
+
+-   La distribución de PREMIOs muestra que [inserta conclusión basada en gráficos].
+-   Los SORTEOs más frecuentes en otorgar PREMIOs son [inserta hallazgos].
+-   La distribución de SERIEs muestra [inserta hallazgos].
+
+Este análisis permite identificar patrones y tendencias en los resultados de la lotería, ayudando a entender mejor las dinámicas de los SORTEOs.
+
+## Referencias
+
+https://www.datos.gov.co/Comercio-Industria-y-Turismo/resultados-por-sorteo-loteria-santander/4zwu-ra3f/about_data
